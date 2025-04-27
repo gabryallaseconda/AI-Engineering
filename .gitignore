@@ -172,3 +172,14 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+
+# Work in progress word
+*.docx
+*.doc
+*.odt
+
+
+# macos
+.DS_Store
