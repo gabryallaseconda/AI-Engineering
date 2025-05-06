@@ -1,0 +1,17 @@
+{
+    "model_selected_index":0,
+    "huggingface_token":"-",
+
+    "models_specification":[
+        {
+            "model_owner":"meta-llama",
+            "model_name":"Meta-Llama-3-8B-Instruct",
+            "local_directory":"llama_3_2_3b_instruct_mac"
+        },
+        {
+            "model_owner":"TinyLlama",
+            "model_name":"TinyLlama-1.1B-Chat-v1.0",
+            "local_directory":"tiny_llama_1_1b_chat_v1_0_mac"
+        }
+    ]
+}

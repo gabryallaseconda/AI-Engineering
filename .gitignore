@@ -16,10 +16,8 @@ Data/IMDB Dataset.csv
 # macos
 .DS_Store
 
-# Local models weights
-LocalModels/llama_3_2_3b_instruct_mac/*
-
-
+# Local models weights (ignore any folder, and only the folders)
+LocalModels/*/
 
 ### Default Python gitignore ###
 
