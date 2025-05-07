@@ -17,7 +17,11 @@ Import and use load_model function to load the model in you script.
 import json
 
 # TPL
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import (AutoTokenizer, 
+                          AutoModelForCausalLM, 
+                          AutoModelForMaskedLM,
+                          pipeline
+                          )
 import torch
 
 
@@ -45,11 +49,16 @@ def _get_configuration(model_selected_index = None,
     model_owner = config["models_specification"][model_selected_index]["model_owner"]
     model_name = config["models_specification"][model_selected_index]["model_name"]
     local_directory = config["models_specification"][model_selected_index]["local_directory"]
+    model_usage = config["models_specification"][model_selected_index]["usage"]
 
     model_id = f"{model_owner}/{model_name}"
     saving_path = f"{current_path}/{local_directory}"
     
-    return device, model_id, saving_path, huggingface_token
+    allowed_model_usages = ["chat", "embedding"]
+    if model_usage not in allowed_model_usages:
+        raise ValueError(f"Model type {model_usage} is not supported. Please use one of {allowed_model_types}.")
+    
+    return device, model_id, model_usage, saving_path, huggingface_token
 
 
 
@@ -61,24 +70,31 @@ def fetch_model(model_selected_index = None,
 
     # Get configuration
     
-    device, model_id, saving_path, huggingface_token = _get_configuration(model_selected_index, current_path)
+    device, model_id, model_usage, saving_path, huggingface_token = _get_configuration(model_selected_index, current_path)
 
     # Access Hugging Face
 
     tokenizer = AutoTokenizer.from_pretrained(model_id, 
                                             token=huggingface_token)
 
-    model = AutoModelForCausalLM.from_pretrained(model_id,
-                                                token=huggingface_token,
-                                                torch_dtype=torch.float16,  # Quantization
-                                                device_map=device
-    )
-
-
+    if model_usage == "chat":
+        model = AutoModelForCausalLM.from_pretrained(model_id,
+                                                    token=huggingface_token,
+                                                    torch_dtype=torch.float16,  # Quantization
+                                                    device_map=device
+        )
+    elif model_usage == "embedding":
+        model = AutoModelForMaskedLM.from_pretrained(model_id,
+                                                    token=huggingface_token,
+                                                    torch_dtype=torch.float16,  # Quantization
+                                                    device_map=device
+        )
+    else:
+        raise NotImplementedError(f"Model type {model_usage} is not implemented.")
+   
     # Save the model locally
-
-    model.save_pretrained(saving_path)
-
+    model.save_pretrained(saving_path,
+                          safe_serialization=False if model_selected_index in [2] else True) # otherwise we have problems with bert
     tokenizer.save_pretrained(saving_path)
     
     
@@ -87,29 +103,11 @@ def fetch_model(model_selected_index = None,
     print("Model downloaded and saved successfully.")
     
     
-    
-def load_model( model_selected_index = None,
-                current_path = None,
-                max_length=512,
-                temperature=0.7,
-                top_p=0.9,
-                top_k=50):
-    
 
-    # Get configuration
-    
-    device, _, saving_path, _ = _get_configuration(model_selected_index, current_path)
-
-    # Load saved model
-    
-    local_tokenizer = AutoTokenizer.from_pretrained(saving_path)
-
-    
-    local_model = AutoModelForCausalLM.from_pretrained(saving_path,
-                                                       torch_dtype=torch.float16,  # Quantization
-                                                       device_map=device
-                                                       )
-    
+def _text_generator_pipeline(local_model,
+                             local_tokenizer,
+                             device,
+                             settings = {}):
     # Initialize the pipeline
     
     text_generator = pipeline(
@@ -117,14 +115,98 @@ def load_model( model_selected_index = None,
         model=local_model,
         tokenizer=local_tokenizer,
         device_map=device,
-        #device=device,
-        max_length=max_length,
-        temperature=temperature,
-        top_p=top_p,
-        top_k=top_k,
+        **settings
+
     )
+            
+
 
     return text_generator
+
+def _feature_extractor_pipeline(local_model,
+                                local_tokenizer,
+                                device,
+                                settings = {}):
+                                
+    feature_extraction = pipeline(
+        "feature-extraction",
+        model=local_model,
+        tokenizer=local_tokenizer,
+        device_map=device,
+        framework="pt",
+        return_tensors=True,
+        # Importante: configura la pipeline per ottenere gli hidden states
+        config={"output_hidden_states": False},
+        
+        **settings
+    )
+    
+    return feature_extraction
+
+
+
+
+    
+def load_model( model_selected_index = None,
+                current_path = None,
+                settings = {}):
+    
+
+    # Get configuration
+    
+    device, model_id, model_usage, saving_path, _ = _get_configuration(model_selected_index, current_path)
+    print(f"Loading model {model_id}...")
+
+    # Load saved model
+    
+    local_tokenizer = AutoTokenizer.from_pretrained(saving_path)
+
+
+    if model_usage == "chat":
+        
+        print("Usage: chat, transformers method: AutoModelForCausalLM, pipeline: text-generation")
+        
+        local_model = AutoModelForCausalLM.from_pretrained(saving_path,
+                                                    torch_dtype=torch.float16,  # Quantization
+                                                    device_map=device
+                                                    )
+        
+        
+        if settings is None:
+            settings = {
+                "max_length": 512,
+                "top_k": 50,
+                "top_p": 0.9,
+                "temperature": 0.7
+            }
+        
+        return _text_generator_pipeline(local_model,
+                                        local_tokenizer,
+                                        device,
+                                        settings)
+        
+        
+        
+    elif model_usage == "embedding":
+        
+        print("Usage: embedding, transformers method: AutoModelForMaskedLM, pipeline: feature-extraction")
+        
+        local_model = AutoModelForMaskedLM.from_pretrained(saving_path,
+                                                    torch_dtype=torch.float16,  # Quantization
+                                                  #  device_map=device
+                                                    )
+        
+        return local_model, local_tokenizer
+
+        
+        return _feature_extractor_pipeline(local_model,
+                                            local_tokenizer,
+                                            device,
+                                            settings)
+    
+    
+    else:
+        raise NotImplementedError(f"Model type {model_usage} is not implemented.")
     
     
 if __name__ == "__main__":

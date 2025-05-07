@@ -6,12 +6,32 @@
         {
             "model_owner":"meta-llama",
             "model_name":"Meta-Llama-3-8B-Instruct",
-            "local_directory":"llama_3_2_3b_instruct_mac"
+            "local_directory":"llama_3_2_3b_instruct_mac",
+            "usage":"chat"
         },
         {
             "model_owner":"TinyLlama",
             "model_name":"TinyLlama-1.1B-Chat-v1.0",
-            "local_directory":"tiny_llama_1_1b_chat_v1_0_mac"
+            "local_directory":"tiny_llama_1_1b_chat_v1_0_mac",
+            "usage":"chat"
+        },
+        {
+            "model_owner":"google-bert",
+            "model_name":"bert-base-uncased",
+            "local_directory":"bert_base_uncased_mac",
+            "usage":"embedding"
+        },
+        {
+            "model_owner":"google-bert",
+            "model_name":"bert-base-multilingual-cased",
+            "local_directory":"bert_base_multilingual_cased_mac",
+            "usage":"embedding"
+        },
+        {
+            "model_owner":"dbmdz",
+            "model_name":"bert-base-italian-xxl-uncased",
+            "local_directory":"bert_base_italian_xxl_uncased_mac",
+            "usage":"embedding"
         }
     ]
 }
